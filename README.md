@@ -1,53 +1,78 @@
+<div align="center">
+
 # aisafety-mcp
 
-MCP server wrapping the public [AISafety.com](https://aisafety.com/developers) read-only JSON API (`https://aisafety.com/api/v1`). No auth, stateless, stdio transport. Built on `@modelcontextprotocol/sdk`.
+MCP server for the public AISafety.com directory API — eleven read-only tools over AI safety communities, orgs, events, jobs, funding, courses, and more.
 
-## Install
+[![MIT License][license-shield]][license-url]
+[![TypeScript][typescript-shield]][typescript-url]
+[![MCP][mcp-shield]][mcp-url]
+[![Node][node-shield]][node-url]
+
+</div>
+
+## About
+
+Thin, stateless MCP server (stdio transport) wrapping the public read-only JSON API at `https://aisafety.com/api/v1`. No auth, no dependencies beyond the MCP SDK and `fetch`. Each tool takes free-text `q`, the API's documented per-collection filters, and `limit`, and returns `{ count, license, attribution, results }` trimmed to sane sizes.
+
+### Built With
+
+- [TypeScript](https://www.typescriptlang.org/)
+- [Model Context Protocol SDK](https://github.com/modelcontextprotocol/typescript-sdk) (`@modelcontextprotocol/sdk`)
+- [Zod](https://zod.dev/) (tool input schemas)
+- [AISafety.com API](https://aisafety.com/developers) (data source, CC-BY-4.0)
+
+## Getting Started
+
+### Prerequisites
+
+- Node.js 18+
+- An MCP client (Claude Desktop, Claude Code, etc.)
+
+### Installation
 
 ```bash
+git clone https://github.com/aminamos/aisafety-mcp.git
+cd aisafety-mcp
 npm install
 npm run build
 ```
 
-Run directly:
-
-```bash
-node dist/index.js
-# or for dev:
-npx tsx src/index.ts
-```
-
-## MCP config
-
-Claude Desktop (`claude_desktop_config.json`) or Claude Code (`~/.claude.json` / `.mcp.json`):
+Point your MCP client at the built server. Claude Desktop (`claude_desktop_config.json`) / Claude Code (`.mcp.json`):
 
 ```json
 {
   "mcpServers": {
     "aisafety": {
       "command": "node",
-      "args": ["E:/development/aisafety-mcp/dist/index.js"]
+      "args": ["/absolute/path/to/aisafety-mcp/dist/index.js"]
     }
   }
 }
 ```
 
-With tsx (no build step):
+No build step — run from source with `tsx`:
 
 ```json
 {
   "mcpServers": {
     "aisafety": {
       "command": "npx",
-      "args": ["tsx", "E:/development/aisafety-mcp/src/index.ts"]
+      "args": ["tsx", "/absolute/path/to/aisafety-mcp/src/index.ts"]
     }
   }
 }
 ```
 
-## Tools
+## Usage
 
-One tool per API collection. Each accepts `q` (free-text search across all fields), the documented per-collection filter fields (case-insensitive substring, comma-separated for OR, AND across fields), and `limit` (1–50, default 10). Returns `{ count, license, attribution, results }`, trimmed to sane sizes (long strings truncated, total output capped).
+One tool per API collection. Common args: `q` (free-text search across all fields), `limit` (1–50, default 10). Filters are case-insensitive substrings; comma-separate for OR, combine fields for AND.
+
+```json
+{ "tool": "search_events", "arguments": { "q": "conference", "mode": "online", "limit": 5 } }
+{ "tool": "search_jobs", "arguments": { "organization": "Redwood", "workLocation": "remote" } }
+{ "tool": "search_funding", "arguments": { "acceptingApplications": "yes" } }
+```
 
 | Tool | Collection | Filters |
 |---|---|---|
@@ -63,6 +88,43 @@ One tool per API collection. Each accepts `q` (free-text search across all field
 | `search_founder_resources` | `/founder-resources` | `type` |
 | `search_projects` | `/projects` | `status` |
 
+## Roadmap
+
+- [x] One tool per collection with live filter passthrough
+- [x] Output trimming (long strings, total size cap)
+- [ ] Server-side pagination passthrough (if the API adds it)
+- [ ] Pin / surface upstream API version from OpenAPI spec
+
+## Contributing
+
+PRs welcome. Keep it boring: stdio transport, stateless, no new runtime deps without a reason.
+
+1. Fork the repo
+2. Create your branch (`git checkout -b feature/thing`)
+3. Commit (`git commit -m 'Add thing'`)
+4. Push (`git push origin feature/thing`)
+5. Open a pull request
+
 ## License
 
-Server code: MIT (see `LICENSE`). API data: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) — please credit AISafety.com when using the data.
+Server code: MIT — see [`LICENSE`](LICENSE). API data: [CC-BY-4.0](https://creativecommons.org/licenses/by/4.0/) — credit AISafety.com when using the data.
+
+## Contact
+
+Amin Amos — [@aminamos](https://github.com/aminamos)
+
+Project link: [https://github.com/aminamos/aisafety-mcp](https://github.com/aminamos/aisafety-mcp)
+
+## Acknowledgments
+
+- [AISafety.com](https://aisafety.com) for the open CC-BY-4.0 directory API
+- [Best-README-Template](https://github.com/othneildrew/Best-README-Template) for the README structure
+
+[license-shield]: https://img.shields.io/badge/license-MIT-green.svg
+[license-url]: https://github.com/aminamos/aisafety-mcp/blob/main/LICENSE
+[typescript-shield]: https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white
+[typescript-url]: https://www.typescriptlang.org/
+[mcp-shield]: https://img.shields.io/badge/MCP-stdio-blueviolet
+[mcp-url]: https://modelcontextprotocol.io/
+[node-shield]: https://img.shields.io/badge/node-%3E%3D18-339933?logo=node.js&logoColor=white
+[node-url]: https://nodejs.org/
