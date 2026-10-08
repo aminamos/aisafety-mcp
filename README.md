@@ -13,7 +13,7 @@ MCP server for the public AISafety.com directory API — eleven read-only tools 
 
 ## About
 
-Thin, stateless MCP server (stdio transport) wrapping the public read-only JSON API at `https://aisafety.com/api/v1`. No auth, no dependencies beyond the MCP SDK and `fetch`. Each tool takes free-text `q`, the API's documented per-collection filters, and `limit`, and returns `{ count, license, attribution, results }` trimmed to sane sizes.
+Thin, stateless MCP server (stdio transport) wrapping the public read-only JSON API at `https://aisafety.com/api/v1`. No auth, no dependencies beyond the MCP SDK and `fetch`. Each tool takes free-text `q`, the API's documented per-collection filters, and uniform `offset`/`limit` pagination, and returns `{ count, offset, limit, hasMore, license, attribution, results }` trimmed to sane sizes. The upstream API returns full collections, so paging is applied client-side after filters.
 
 ### Built With
 
@@ -66,7 +66,7 @@ No build step — run from source with `tsx`:
 
 ## Usage
 
-One tool per API collection. Common args: `q` (free-text search across all fields), `limit` (1–50, default 10). Filters are case-insensitive substrings; comma-separate for OR, combine fields for AND.
+One tool per API collection. Common args: `q` (free-text search across all fields), `offset` (rows to skip, default 0), `limit` (page size 1–50, default 10). Filters are case-insensitive substrings; comma-separate for OR, combine fields for AND. `count` is total matches before paging; `hasMore` signals another page.
 
 ```json
 { "tool": "search_events", "arguments": { "q": "conference", "mode": "online", "limit": 5 } }
@@ -92,7 +92,7 @@ One tool per API collection. Common args: `q` (free-text search across all field
 
 - [x] One tool per collection with live filter passthrough
 - [x] Output trimming (long strings, total size cap)
-- [ ] Server-side pagination passthrough (if the API adds it)
+- [x] Client-side pagination (`offset` + `limit`, page size capped at 50)
 - [ ] Pin / surface upstream API version from OpenAPI spec
 
 ## Contributing

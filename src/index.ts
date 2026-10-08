@@ -12,13 +12,19 @@ const DEFAULT_LIMIT = 10;
 const MAX_STRING_LEN = 500;
 const MAX_OUTPUT_CHARS = 12000;
 
-const limitField = z
+const offsetField = z
   .number()
   .int()
-  .min(1)
-  .max(MAX_LIMIT)
+  .min(0)
   .optional()
-  .describe(`Max rows to return (1-${MAX_LIMIT}, default ${DEFAULT_LIMIT}).`);
+  .describe("Rows to skip before returning results (default 0).");
+const limitField = z
+   .number()
+   .int()
+   .min(1)
+   .max(MAX_LIMIT)
+   .optional()
+   .describe(`Max rows to return (1-${MAX_LIMIT}, default ${DEFAULT_LIMIT}).`);
 
 function strField(description: string) {
   return z.string().optional().describe(description);
@@ -42,6 +48,7 @@ function trimValue(value: unknown): unknown {
 async function queryCollection(
   collection: string,
   params: Record<string, unknown>,
+  offset: number,
   limit: number,
 ) {
   const qs = new URLSearchParams();
@@ -59,15 +66,21 @@ async function queryCollection(
     meta?: { count?: number; license?: string; attribution?: string };
   };
   const rows = Array.isArray(body.data) ? body.data : [];
-  const sliced = rows
-    .slice(0, limit)
-    .map((r) => trimValue(r));
+  // The upstream API returns full collections (no server-side paging), so
+  // paginate client-side. Filters + q were already applied upstream via the
+  // query string, keeping pages stable.
+  const total = body.meta?.count ?? rows.length;
+  const page = rows.slice(offset, offset + limit).map((r) => trimValue(r));
+  const hasMore = offset + page.length < total;
   let text = JSON.stringify(
     {
-      count: body.meta?.count ?? rows.length,
+      count: total,
+      offset,
+      limit,
+      hasMore,
       license: body.meta?.license ?? "CC-BY-4.0",
       attribution: body.meta?.attribution ?? "AISafety.com",
-      results: sliced,
+      results: page,
     },
     null,
     2,
@@ -75,7 +88,7 @@ async function queryCollection(
   if (text.length > MAX_OUTPUT_CHARS) {
     text =
       text.slice(0, MAX_OUTPUT_CHARS) +
-      `\n…(truncated; ${rows.length} total rows, showing ${sliced.length})`;
+      `\n…(truncated; ${total} total rows, offset ${offset}, showing ${page.length})`;
   }
   return {
     content: [{ type: "text" as const, text }],
@@ -196,6 +209,7 @@ for (const col of COLLECTIONS) {
     q: strField("Free-text search across all fields."),
   };
   for (const f of col.filters) shape[f.name] = z.string().optional().describe(`Filter by ${f.label} (case-insensitive substring; comma-separate for OR).`);
+  shape["offset"] = offsetField;
   shape["limit"] = limitField;
 
   server.registerTool(
@@ -205,13 +219,17 @@ for (const col of COLLECTIONS) {
       inputSchema: shape,
     },
     async (args: Record<string, unknown>) => {
-      const { limit, ...filters } = args;
+      const { limit, offset, ...filters } = args;
       const n =
         typeof limit === "number" && Number.isFinite(limit)
           ? Math.min(Math.max(Math.floor(limit), 1), MAX_LIMIT)
           : DEFAULT_LIMIT;
+      const off =
+        typeof offset === "number" && Number.isFinite(offset)
+          ? Math.max(Math.floor(offset), 0)
+          : 0;
       try {
-        return await queryCollection(col.path, filters, n);
+        return await queryCollection(col.path, filters, off, n);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         return {
